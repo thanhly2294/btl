@@ -1,52 +1,52 @@
 import 'package:flutter/material.dart';
-import 'join_class_screen.dart';
-import 'view_grades_screen.dart';
+import 'join_class.dart';
+import 'view_grades.dart';
 
 class StudentHome extends StatelessWidget {
   final int studentId;
-
-  const StudentHome({super.key, required this.studentId});
+  StudentHome({required this.studentId});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trang sinh viên'),
+        title: Text('Trang chủ Sinh viên'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/');
+            },
+          )
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Xin chào, SV ID: $studentId',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Center(
+            child: ElevatedButton(
+              child: Text('Tham gia lớp học'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => JoinClass(studentId: studentId),
+                ),
+              ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => JoinClassScreen(studentId: studentId),
-                  ),
-                );
-              },
-              child: const Text('Tham gia lớp học'),
+          ),
+          SizedBox(height: 16),
+          Center(
+            child: ElevatedButton(
+              child: Text('Xem điểm'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ViewGrades(studentId: studentId),
+                ),
+              ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ViewGradesScreen(studentId: studentId),
-                  ),
-                );
-              },
-              child: const Text('Xem điểm'),
-            ),
-          ],
-        ),
+          )
+        ],
       ),
     );
   }
