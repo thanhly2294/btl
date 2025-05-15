@@ -22,9 +22,25 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Tăng version lên 2 do có thay đổi schema
       onCreate: _createDB,
+      onUpgrade: _upgradeDB, // Thêm hàm upgrade cho phiên bản mới
     );
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE class_requests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          studentId INTEGER,
+          classId INTEGER,
+          status TEXT DEFAULT 'pending',
+          createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(studentId, classId)
+        )
+      ''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -60,6 +76,17 @@ class DatabaseHelper {
       classId INTEGER,
       PRIMARY KEY(studentId, classId)
     )''');
+
+    await db.execute('''
+      CREATE TABLE class_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        studentId INTEGER,
+        classId INTEGER,
+        status TEXT DEFAULT 'pending',
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(studentId, classId)
+      )
+    ''');
 
     // Chèn dữ liệu mặc định (giảng viên và sinh viên)
     await insertInitialData(db);
@@ -123,10 +150,15 @@ class DatabaseHelper {
     });
   }
 
-  // Method to delete a class
+  // Method to delete a class (cập nhật để xóa cả các liên kết)
   Future<void> deleteClass(int classId) async {
     final db = await database;
-    await db.delete('classes', where: 'id = ?', whereArgs: [classId]);
+    await db.transaction((txn) async {
+      await txn.delete('class_students', where: 'classId = ?', whereArgs: [classId]);
+      await txn.delete('grades', where: 'classId = ?', whereArgs: [classId]);
+      await txn.delete('class_requests', where: 'classId = ?', whereArgs: [classId]);
+      await txn.delete('classes', where: 'id = ?', whereArgs: [classId]);
+    });
   }
 
   // Method to get grades by student
@@ -141,25 +173,90 @@ class DatabaseHelper {
     return result;
   }
 
-  // Method to enroll a student into a class
-  Future<void> enrollStudent(int studentId, int classId) async {
+  // Method to request joining a class
+  Future<void> requestJoinClass(int studentId, int classId) async {
     final db = await database;
-    // Kiểm tra xem sinh viên đã tham gia lớp này chưa
+    // Kiểm tra xem đã có yêu cầu chưa
     final exists = await db.query(
-      'class_students',
+      'class_requests',
       where: 'studentId = ? AND classId = ?',
       whereArgs: [studentId, classId],
     );
 
     if (exists.isEmpty) {
-      await db.insert('class_students', {
+      await db.insert('class_requests', {
         'studentId': studentId,
         'classId': classId,
+        'status': 'pending',
       });
-      print('Đã thêm sinh viên $studentId vào lớp $classId');
-    } else {
-      print('Sinh viên $studentId đã có trong lớp $classId');
     }
+  }
+
+  // Method to get pending requests for a class
+  Future<List<Map<String, dynamic>>> getPendingRequests(int classId) async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT class_requests.id, students.id as studentId, students.name, students.email
+      FROM class_requests
+      JOIN students ON class_requests.studentId = students.id
+      WHERE class_requests.classId = ? AND class_requests.status = 'pending'
+    ''', [classId]);
+  }
+
+  // Method to approve a request
+  Future<void> approveRequest(int requestId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      // Lấy thông tin yêu cầu
+      final request = await txn.query(
+        'class_requests',
+        where: 'id = ?',
+        whereArgs: [requestId],
+      );
+
+      if (request.isNotEmpty) {
+        final studentId = request.first['studentId'] as int;
+        final classId = request.first['classId'] as int;
+
+        // Cập nhật trạng thái yêu cầu
+        await txn.update(
+          'class_requests',
+          {'status': 'approved'},
+          where: 'id = ?',
+          whereArgs: [requestId],
+        );
+
+        // Thêm sinh viên vào lớp
+        await txn.insert('class_students', {
+          'studentId': studentId,
+          'classId': classId,
+        });
+      }
+    });
+  }
+
+  // Method to reject a request
+  Future<void> rejectRequest(int requestId) async {
+    final db = await database;
+    await db.update(
+      'class_requests',
+      {'status': 'rejected'},
+      where: 'id = ?',
+      whereArgs: [requestId],
+    );
+  }
+
+  // Method to get student's pending requests
+  Future<List<Map<String, dynamic>>> getStudentRequests(int studentId) async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT class_requests.id, classes.name as className, 
+             teachers.name as teacherName, class_requests.status
+      FROM class_requests
+      JOIN classes ON class_requests.classId = classes.id
+      JOIN teachers ON classes.teacherId = teachers.id
+      WHERE class_requests.studentId = ?
+    ''', [studentId]);
   }
 
   // Method to get all classes
@@ -227,13 +324,19 @@ class DatabaseHelper {
     return data;
   }
 
-  // Thêm vào database_helper.dart
   Future<void> removeStudentFromClass(int studentId, int classId) async {
     final db = await database;
-    await db.delete(
-      'class_students',
-      where: 'studentId = ? AND classId = ?',
-      whereArgs: [studentId, classId],
-    );
+    await db.transaction((txn) async {
+      await txn.delete(
+        'class_students',
+        where: 'studentId = ? AND classId = ?',
+        whereArgs: [studentId, classId],
+      );
+      await txn.delete(
+        'grades',
+        where: 'studentId = ? AND classId = ?',
+        whereArgs: [studentId, classId],
+      );
+    });
   }
 }

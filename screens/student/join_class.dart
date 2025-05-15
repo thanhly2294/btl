@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../models/class_model.dart';
+import 'request_status.dart';
 
 class JoinClass extends StatefulWidget {
   final int studentId;
@@ -12,15 +13,23 @@ class JoinClass extends StatefulWidget {
 
 class _JoinClassState extends State<JoinClass> {
   List<ClassModel> classes = [];
+  List<Map<String, dynamic>> requests = [];
 
   void _loadClasses() async {
     final data = await DatabaseHelper.instance.getAllClasses();
-    setState(() => classes = data);
+    final reqs = await DatabaseHelper.instance.getStudentRequests(widget.studentId);
+    setState(() {
+      classes = data;
+      requests = reqs;
+    });
   }
 
-  void _joinClass(int classId) async {
-    await DatabaseHelper.instance.enrollStudent(widget.studentId, classId);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đã tham gia lớp thành công')));
+  void _requestJoinClass(int classId) async {
+    await DatabaseHelper.instance.requestJoinClass(widget.studentId, classId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Đã gửi yêu cầu tham gia lớp. Chờ giảng viên phê duyệt.')),
+    );
+    _loadClasses();
   }
 
   @override
@@ -34,17 +43,38 @@ class _JoinClassState extends State<JoinClass> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Tham gia lớp học'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.list),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RequestStatus(studentId: widget.studentId),
+              ),
+            ),
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: classes.length,
         itemBuilder: (context, index) {
           final c = classes[index];
+          final request = requests.firstWhere(
+                (r) => r['className'] == c.name,
+            orElse: () => {},
+          );
+
           return ListTile(
             title: Text(c.name),
-            trailing: IconButton(
-              icon: Icon(Icons.add, color: Colors.green),
-              onPressed: () => _joinClass(c.id!),
-            ),
+            subtitle: request.isNotEmpty
+                ? Text('Trạng thái: ${request['status']}')
+                : null,
+            trailing: request.isEmpty
+                ? IconButton(
+              icon: Icon(Icons.send, color: Colors.blue),
+              onPressed: () => _requestJoinClass(c.id!),
+            )
+                : null,
           );
         },
       ),

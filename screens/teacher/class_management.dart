@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
 import '../../models/class_model.dart';
 import 'student_list.dart';
+import 'class_requests.dart';
 
 class ClassManagement extends StatefulWidget {
   final int teacherId;
@@ -45,8 +46,28 @@ class _ClassManagementState extends State<ClassManagement> {
   }
 
   void _deleteClass(int classId) async {
-    await DatabaseHelper.instance.deleteClass(classId);
-    _loadClasses();
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Xác nhận xóa lớp'),
+        content: Text('Bạn có chắc chắn muốn xóa lớp học này? Tất cả dữ liệu liên quan sẽ bị xóa.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await DatabaseHelper.instance.deleteClass(classId);
+      _loadClasses();
+    }
   }
 
   @override
@@ -60,7 +81,12 @@ class _ClassManagementState extends State<ClassManagement> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Quản lý lớp học'),
-        actions: [IconButton(onPressed: _addClass, icon: Icon(Icons.add))],
+        actions: [
+          IconButton(
+            icon: Icon(Icons.add),
+            onPressed: _addClass,
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: classes.length,
@@ -68,9 +94,23 @@ class _ClassManagementState extends State<ClassManagement> {
           final c = classes[index];
           return ListTile(
             title: Text(c.name),
-            trailing: IconButton(
-              icon: Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deleteClass(c.id!),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.group_add),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClassRequests(classId: c.id!),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _deleteClass(c.id!),
+                ),
+              ],
             ),
             onTap: () => Navigator.push(
               context,

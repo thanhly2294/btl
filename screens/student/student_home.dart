@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'join_class.dart';
 import 'view_grades.dart';
+import 'request_status.dart';
 
 class StudentHome extends StatelessWidget {
   final int studentId;
@@ -20,11 +21,11 @@ class StudentHome extends StatelessWidget {
           )
         ],
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Center(
-            child: ElevatedButton(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
               child: Text('Tham gia lớp học'),
               onPressed: () => Navigator.push(
                 context,
@@ -33,10 +34,18 @@ class StudentHome extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-          SizedBox(height: 16),
-          Center(
-            child: ElevatedButton(
+            SizedBox(height: 16),
+            ElevatedButton(
+              child: Text('Xem trạng thái yêu cầu'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RequestStatus(studentId: studentId),
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
               child: Text('Xem điểm'),
               onPressed: () => Navigator.push(
                 context,
@@ -45,8 +54,8 @@ class StudentHome extends StatelessWidget {
                 ),
               ),
             ),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }
