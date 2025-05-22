@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'join_class.dart';
 import 'view_grades.dart';
-import 'request_status.dart';
+import 'edit_profile.dart';
 
 class StudentHome extends StatelessWidget {
   final int studentId;
@@ -11,7 +11,7 @@ class StudentHome extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Trang chủ Sinh viên'),
+        title: Text('Trang chủ'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
@@ -21,12 +21,12 @@ class StudentHome extends StatelessWidget {
           )
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              child: Text('Tham gia lớp học'),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Center(
+            child: ElevatedButton(
+              child: Text('Join Class'),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -34,18 +34,10 @@ class StudentHome extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              child: Text('Xem trạng thái yêu cầu'),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RequestStatus(studentId: studentId),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-            ElevatedButton(
+          ),
+          SizedBox(height: 16),
+          Center(
+            child: ElevatedButton(
               child: Text('Xem điểm'),
               onPressed: () => Navigator.push(
                 context,
@@ -54,8 +46,19 @@ class StudentHome extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-        ),
+          )
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EditStudentProfile(studentId: studentId),
+            ),
+          );
+        },
+        child: Icon(Icons.edit),
       ),
     );
   }

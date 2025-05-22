@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../database/database_helper.dart';
-import '../../models/class_model.dart';
 import 'request_status.dart';
 
 class JoinClass extends StatefulWidget {
@@ -12,15 +11,43 @@ class JoinClass extends StatefulWidget {
 }
 
 class _JoinClassState extends State<JoinClass> {
-  List<ClassModel> classes = [];
-  List<Map<String, dynamic>> requests = [];
+  List<Map<String, dynamic>> approvedClasses = [];
+  List<Map<String, dynamic>> pendingClasses = [];
+  List<Map<String, dynamic>> availableClasses = [];
 
   void _loadClasses() async {
-    final data = await DatabaseHelper.instance.getAllClasses();
-    final reqs = await DatabaseHelper.instance.getStudentRequests(widget.studentId);
+    final db = await DatabaseHelper.instance.database;
+
+    // Lấy danh sách lớp đã được phê duyệt
+    final approvedData = await db.rawQuery('''
+      SELECT c.id, c.name, cr.status 
+      FROM classes c
+      JOIN class_requests cr ON c.id = cr.classId
+      WHERE cr.studentId = ? AND cr.status = 'approved'
+    ''', [widget.studentId]);
+
+    // Lấy danh sách lớp đang chờ duyệt
+    final pendingData = await db.rawQuery('''
+      SELECT c.id, c.name, cr.status 
+      FROM classes c
+      JOIN class_requests cr ON c.id = cr.classId
+      WHERE cr.studentId = ? AND cr.status = 'pending'
+    ''', [widget.studentId]);
+
+    // Lấy danh sách lớp có thể tham gia
+    final availableData = await db.rawQuery('''
+      SELECT c.id, c.name
+      FROM classes c
+      WHERE c.id NOT IN (
+        SELECT classId FROM class_requests 
+        WHERE studentId = ?
+      )
+    ''', [widget.studentId]);
+
     setState(() {
-      classes = data;
-      requests = reqs;
+      approvedClasses = List<Map<String, dynamic>>.from(approvedData);
+      pendingClasses = List<Map<String, dynamic>>.from(pendingData);
+      availableClasses = List<Map<String, dynamic>>.from(availableData);
     });
   }
 
@@ -55,28 +82,84 @@ class _JoinClassState extends State<JoinClass> {
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: classes.length,
-        itemBuilder: (context, index) {
-          final c = classes[index];
-          final request = requests.firstWhere(
-                (r) => r['className'] == c.name,
-            orElse: () => {},
-          );
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Phần lớp đã được phê duyệt
+            if (approvedClasses.isNotEmpty) ...[
+              _buildSectionHeader('Lớp đã tham gia'),
+              ...approvedClasses.map((c) => _buildClassItem(c, isApproved: true)),
+              SizedBox(height: 16),
+            ],
 
-          return ListTile(
-            title: Text(c.name),
-            subtitle: request.isNotEmpty
-                ? Text('Trạng thái: ${request['status']}')
-                : null,
-            trailing: request.isEmpty
-                ? IconButton(
-              icon: Icon(Icons.send, color: Colors.blue),
-              onPressed: () => _requestJoinClass(c.id!),
-            )
-                : null,
-          );
-        },
+            // Phần lớp đang chờ duyệt
+            if (pendingClasses.isNotEmpty) ...[
+              _buildSectionHeader('Đang chờ duyệt'),
+              ...pendingClasses.map((c) => _buildClassItem(c, isPending: true)),
+              SizedBox(height: 16),
+            ],
+
+            // Phần lớp có thể tham gia
+            if (availableClasses.isNotEmpty) ...[
+              _buildSectionHeader('Lớp có thể tham gia'),
+              ...availableClasses.map((c) => _buildClassItem(c, canJoin: true)),
+            ],
+
+            // Trường hợp không có lớp nào
+            if (approvedClasses.isEmpty && pendingClasses.isEmpty && availableClasses.isEmpty)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Không có lớp học nào hiện có'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.blue[800],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClassItem(Map<String, dynamic> classData, {
+    bool isApproved = false,
+    bool isPending = false,
+    bool canJoin = false,
+  }) {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: ListTile(
+        title: Text(
+          classData['name'],
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: isPending || isApproved
+            ? Text('Trạng thái: ${classData['status']}')
+            : null,
+        trailing: canJoin
+            ? IconButton(
+          icon: Icon(Icons.send, color: Colors.blue),
+          onPressed: () => _requestJoinClass(classData['id']),
+        )
+            : null,
+        tileColor: isApproved
+            ? Colors.green[50]
+            : isPending
+            ? Colors.orange[50]
+            : null,
       ),
     );
   }

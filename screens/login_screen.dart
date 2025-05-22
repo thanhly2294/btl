@@ -1,7 +1,9 @@
+// screens/login_screen.dart
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import 'student/student_home.dart';
 import 'teacher/teacher_home.dart';
+import 'admin/admin_home.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -18,17 +20,23 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    print('Đăng nhập với email: $email và mật khẩu: $password');
-
     try {
-      if (_role == 'student') {
+      if (_role == 'admin') {
+        final admin = await DatabaseHelper.instance.getAdminByEmail(email);
+        if (admin != null && admin.password == password) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => AdminHome()),
+          );
+        } else {
+          _showError();
+        }
+      } else if (_role == 'student') {
         final result = await db.query(
           'students',
           where: 'email = ? AND password = ?',
           whereArgs: [email, password],
         );
-
-        print('Kết quả đăng nhập sinh viên: $result');
 
         if (result.isNotEmpty) {
           final student = result.first;
@@ -46,14 +54,12 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           _showError();
         }
-      } else { // Giảng viên
+      } else { // Teacher
         final result = await db.query(
           'teachers',
           where: 'email = ? AND password = ?',
           whereArgs: [email, password],
         );
-
-        print('Kết quả đăng nhập giảng viên: $result');
 
         if (result.isNotEmpty) {
           final teacher = result.first;
@@ -73,62 +79,111 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (e) {
-      print('Lỗi khi đăng nhập: $e');
+      print('Login error: $e');
       _showError();
     }
   }
 
-
-
   void _showError() {
     showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text('Đăng nhập thất bại'),
-          content: Text('Sai email hoặc mật khẩu.'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context), child: Text('OK'))
-          ],
-        ));
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Login Failed'),
+        content: Text('Incorrect email or password.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          )
+        ],
+      ),
+    );
   }
 
-  void _registerStudent() async {
+  void _register() async {
     final db = await DatabaseHelper.instance.database;
-    final email = _emailController.text;
-    final password = _passwordController.text;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
     final name = email.split('@')[0];
 
-    final exists = await db.query('students', where: 'email = ?', whereArgs: [email]);
-    if (exists.isEmpty) {
-      await db.insert('students', {'name': name, 'email': email, 'password': password});
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Đăng ký thành công')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Email đã tồn tại')));
+    try {
+      if (_role == 'student') {
+        final exists = await db.query('students', where: 'email = ?', whereArgs: [email]);
+        if (exists.isEmpty) {
+          await db.insert('students', {
+            'name': name,
+            'email': email,
+            'password': password
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Student registered successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Email already exists')),
+          );
+        }
+      } else if (_role == 'teacher') {
+        final exists = await db.query('teachers', where: 'email = ?', whereArgs: [email]);
+        if (exists.isEmpty) {
+          await db.insert('teachers', {
+            'name': name,
+            'email': email,
+            'password': password
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Teacher registered successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Email already exists')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Registration error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registration failed')),
+      );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Đăng nhập')),
+      appBar: AppBar(title: Text('Login')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(controller: _emailController, decoration: InputDecoration(labelText: 'Email')),
-            TextField(controller: _passwordController, decoration: InputDecoration(labelText: 'Mật khẩu'), obscureText: true),
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(labelText: 'Password'),
+              obscureText: true,
+            ),
             DropdownButton<String>(
               value: _role,
               onChanged: (value) => setState(() => _role = value!),
               items: [
                 DropdownMenuItem(value: 'student', child: Text('Sinh viên')),
                 DropdownMenuItem(value: 'teacher', child: Text('Giảng viên')),
+                DropdownMenuItem(value: 'admin', child: Text('Admin')),
               ],
             ),
             SizedBox(height: 20),
-            ElevatedButton(onPressed: _login, child: Text('Đăng nhập')),
-            if (_role == 'student')
-              TextButton(onPressed: _registerStudent, child: Text('Đăng ký tài khoản sinh viên')),
+            ElevatedButton(
+              onPressed: _login,
+              child: Text('Đăng nhập'),
+            ),
+            if (_role != 'admin')
+              TextButton(
+                onPressed: _register,
+                child: Text('Đăng kí tài khoản ${_role == 'student' ? 'sinh viên' : 'giáo viên'}'),
+              ),
           ],
         ),
       ),

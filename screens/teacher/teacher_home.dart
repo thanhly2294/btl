@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'class_management.dart';
+import 'edit_proflie.dart';
 
 class TeacherHome extends StatelessWidget {
   final int teacherId;
@@ -9,7 +10,7 @@ class TeacherHome extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Trang chủ Giảng viên'),
+        title: Text('Trang chủ giảng viên'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
@@ -31,6 +32,17 @@ class TeacherHome extends StatelessWidget {
             );
           },
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EditTeacherProfile(teacherId: teacherId),
+            ),
+          );
+        },
+        child: Icon(Icons.edit),
       ),
     );
   }

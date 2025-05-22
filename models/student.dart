@@ -6,7 +6,6 @@ class Student {
 
   Student({this.id, required this.name, required this.email, required this.password});
 
-  // Phương thức chuyển đổi Student thành Map
   Map<String, dynamic> toMap() => {
     'id': id,
     'name': name,
@@ -14,7 +13,6 @@ class Student {
     'password': password,
   };
 
-  // Phương thức tạo Student từ Map
   factory Student.fromMap(Map<String, dynamic> map) => Student(
     id: map['id'],
     name: map['name'],
