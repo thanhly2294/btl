@@ -53,7 +53,7 @@ class _EditStudentProfileState extends State<EditStudentProfile> {
 
     await DatabaseHelper.instance.updateStudent(updatedStudent);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Profile updated successfully')),
+      SnackBar(content: Text('Cập nhật thông tin thành công')),
     );
     Navigator.pop(context);
   }
@@ -61,14 +61,21 @@ class _EditStudentProfileState extends State<EditStudentProfile> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Edit Profile')),
+      appBar: AppBar(title: Text('Sửa thông tin cá nhân')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             TextField(
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'ID',
+                hintText: widget.studentId.toString(),
+              ),
+            ),
+            TextField(
               controller: _nameController,
-              decoration: InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: 'Tên'),
             ),
             TextField(
               controller: _emailController,
@@ -76,13 +83,13 @@ class _EditStudentProfileState extends State<EditStudentProfile> {
             ),
             TextField(
               controller: _passwordController,
-              decoration: InputDecoration(labelText: 'Password'),
+              decoration: InputDecoration(labelText: 'Mật khẩu'),
               obscureText: true,
             ),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: _updateProfile,
-              child: Text('Save Changes'),
+              child: Text('Lưu thay đổi'),
             ),
           ],
         ),

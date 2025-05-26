@@ -26,7 +26,7 @@ class StudentHome extends StatelessWidget {
         children: [
           Center(
             child: ElevatedButton(
-              child: Text('Join Class'),
+              child: Text('Tham gia lớp học'),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(

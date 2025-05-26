@@ -57,19 +57,36 @@ class _ManageStudentsState extends State<ManageStudents> {
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Edit Student'),
+        title: Text('Sửa thông tin sinh viên'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameController, decoration: InputDecoration(labelText: 'Name')),
-            TextField(controller: emailController, decoration: InputDecoration(labelText: 'Email')),
-            TextField(controller: passwordController, decoration: InputDecoration(labelText: 'Password'), obscureText: true),
+            TextField(
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'ID',
+                hintText: student.id.toString(),
+              ),
+            ),
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(labelText: 'Tên'),
+            ),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+            TextField(
+              controller: passwordController,
+              decoration: InputDecoration(labelText: 'Mật khẩu'),
+              obscureText: true,
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
+            child: Text('Hủy'),
           ),
           TextButton(
             onPressed: () async {
@@ -83,7 +100,7 @@ class _ManageStudentsState extends State<ManageStudents> {
               _loadStudents();
               Navigator.pop(context);
             },
-            child: Text('Save'),
+            child: Text('Lưu'),
           ),
         ],
       ),
@@ -93,13 +110,13 @@ class _ManageStudentsState extends State<ManageStudents> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Manage Students')),
+      appBar: AppBar(title: Text('Quản lý sinh viên')),
       body: ListView.builder(
         itemCount: students.length,
         itemBuilder: (context, index) {
           final student = students[index];
           return ListTile(
-            title: Text(student.name),
+            title: Text('ID: ${student.id} - ${student.name}'),
             subtitle: Text(student.email),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,

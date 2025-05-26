@@ -18,6 +18,7 @@ class _StudentListState extends State<StudentList> {
   void _loadStudents() async {
     final data = await DatabaseHelper.instance
         .getStudentsWithGradesByClass(widget.classModel.id!);
+    print('Loaded students for class ${widget.classModel.id}: $data'); // Thêm debug
     setState(() {
       studentsWithGrades = data;
     });
@@ -69,19 +70,20 @@ class _StudentListState extends State<StudentList> {
         itemBuilder: (context, index) {
           final student = studentsWithGrades[index];
           return ListTile(
-            title: Text(student['name']),
-            subtitle: Text('Email: ${student['email']}'),
+            title: Text('ID: ${student['id']} - ${student['name']}'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Email: ${student['email']}'),
+                Text('Điểm quá trình: ${student['process_score']?.toString() ?? 'Chưa có'}'),
+                Text('Điểm khởi nghiệp: ${student['startup_score']?.toString() ?? 'Chưa có'}'),
+                Text('Điểm thi: ${student['exam_score']?.toString() ?? 'Chưa có'}'),
+                Text('Tổng điểm: ${student['total_score']?.toString() ?? 'Chưa có'}'),
+              ],
+            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Điểm: ${student['grade']?.toString() ?? 'Chưa có'}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: student['grade'] != null ? Colors.blue : Colors.grey,
-                  ),
-                ),
                 IconButton(
                   icon: Icon(Icons.delete, color: Colors.red),
                   onPressed: () => _removeStudent(student['id']),
@@ -101,7 +103,7 @@ class _StudentListState extends State<StudentList> {
                   classModel: widget.classModel,
                 ),
               ),
-            ),
+            ).then((_) => _loadStudents()), // Làm mới khi quay lại
           );
         },
       ),

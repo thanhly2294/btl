@@ -18,7 +18,6 @@ class _JoinClassState extends State<JoinClass> {
   void _loadClasses() async {
     final db = await DatabaseHelper.instance.database;
 
-    // Lấy danh sách lớp đã được phê duyệt
     final approvedData = await db.rawQuery('''
       SELECT c.id, c.name, cr.status 
       FROM classes c
@@ -26,7 +25,6 @@ class _JoinClassState extends State<JoinClass> {
       WHERE cr.studentId = ? AND cr.status = 'approved'
     ''', [widget.studentId]);
 
-    // Lấy danh sách lớp đang chờ duyệt
     final pendingData = await db.rawQuery('''
       SELECT c.id, c.name, cr.status 
       FROM classes c
@@ -34,7 +32,6 @@ class _JoinClassState extends State<JoinClass> {
       WHERE cr.studentId = ? AND cr.status = 'pending'
     ''', [widget.studentId]);
 
-    // Lấy danh sách lớp có thể tham gia
     final availableData = await db.rawQuery('''
       SELECT c.id, c.name
       FROM classes c
@@ -86,27 +83,20 @@ class _JoinClassState extends State<JoinClass> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Phần lớp đã được phê duyệt
             if (approvedClasses.isNotEmpty) ...[
               _buildSectionHeader('Lớp đã tham gia'),
               ...approvedClasses.map((c) => _buildClassItem(c, isApproved: true)),
               SizedBox(height: 16),
             ],
-
-            // Phần lớp đang chờ duyệt
             if (pendingClasses.isNotEmpty) ...[
               _buildSectionHeader('Đang chờ duyệt'),
               ...pendingClasses.map((c) => _buildClassItem(c, isPending: true)),
               SizedBox(height: 16),
             ],
-
-            // Phần lớp có thể tham gia
             if (availableClasses.isNotEmpty) ...[
               _buildSectionHeader('Lớp có thể tham gia'),
               ...availableClasses.map((c) => _buildClassItem(c, canJoin: true)),
             ],
-
-            // Trường hợp không có lớp nào
             if (approvedClasses.isEmpty && pendingClasses.isEmpty && availableClasses.isEmpty)
               Center(
                 child: Padding(
@@ -143,7 +133,7 @@ class _JoinClassState extends State<JoinClass> {
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: ListTile(
         title: Text(
-          classData['name'],
+          'ID: ${classData['id']} - ${classData['name']}',
           style: TextStyle(fontWeight: FontWeight.w500),
         ),
         subtitle: isPending || isApproved

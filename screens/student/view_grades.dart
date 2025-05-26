@@ -32,9 +32,20 @@ class _ViewGradesState extends State<ViewGrades> {
         itemCount: grades.length,
         itemBuilder: (context, index) {
           final g = grades[index];
-          return ListTile(
-            title: Text('Lớp: ${g['className']}'),
-            subtitle: Text('Điểm: ${g['grade'] ?? 'Chưa có'}'),
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: ListTile(
+              title: Text('Lớp: ${g['className']}'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Điểm quá trình: ${g['process_score']?.toString() ?? 'Chưa có'}'),
+                  Text('Điểm khởi nghiệp: ${g['startup_score']?.toString() ?? 'Chưa có'}'),
+                  Text('Điểm thi: ${g['exam_score']?.toString() ?? 'Chưa có'}'),
+                  Text('Tổng điểm: ${g['total_score']?.toString() ?? 'Chưa có'}'),
+                ],
+              ),
+            ),
           );
         },
       ),

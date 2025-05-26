@@ -26,14 +26,22 @@ class _ClassManagementState extends State<ClassManagement> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text('Thêm lớp học'),
-        content: TextField(controller: controller, decoration: InputDecoration(labelText: 'Tên lớp')),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(labelText: 'Tên lớp'),
+        ),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Hủy'),
+          ),
           TextButton(
             onPressed: () async {
               final name = controller.text;
               if (name.isNotEmpty) {
                 await DatabaseHelper.instance.insertClass(
-                    ClassModel(name: name, teacherId: widget.teacherId));
+                  ClassModel(name: name, teacherId: widget.teacherId),
+                );
                 Navigator.pop(context);
                 _loadClasses();
               }
@@ -93,18 +101,23 @@ class _ClassManagementState extends State<ClassManagement> {
         itemBuilder: (context, index) {
           final c = classes[index];
           return ListTile(
-            title: Text(c.name),
+            title: Text('ID: ${c.id} - ${c.name}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   icon: Icon(Icons.group_add),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ClassRequests(classId: c.id!),
-                    ),
-                  ),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ClassRequests(classId: c.id!),
+                      ),
+                    );
+                    if (result == true) {
+                      _loadClasses(); // Làm mới danh sách lớp học
+                    }
+                  },
                 ),
                 IconButton(
                   icon: Icon(Icons.delete, color: Colors.red),

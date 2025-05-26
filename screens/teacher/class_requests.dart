@@ -23,6 +23,7 @@ class _ClassRequestsState extends State<ClassRequests> {
       SnackBar(content: Text('Đã phê duyệt yêu cầu')),
     );
     _loadRequests();
+    Navigator.pop(context, true); // Trả về true để báo cần làm mới
   }
 
   void _rejectRequest(int requestId) async {
@@ -31,6 +32,7 @@ class _ClassRequestsState extends State<ClassRequests> {
       SnackBar(content: Text('Đã từ chối yêu cầu')),
     );
     _loadRequests();
+    Navigator.pop(context, true); // Trả về true để báo cần làm mới
   }
 
   @override

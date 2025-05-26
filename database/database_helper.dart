@@ -1,4 +1,3 @@
-// database/database_helper.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/class_model.dart';
@@ -6,12 +5,14 @@ import '../models/student.dart';
 import '../models/teacher.dart';
 import '../models/admin.dart';
 
+// Singleton class to manage the SQLite database
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 
   DatabaseHelper._init();
 
+  // Initialize the database
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('grade_management.db');
@@ -21,11 +22,12 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-
     return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
-  Future _createDB(Database db, int version) async {
+  // Create database tables
+  Future<void> _createDB(Database db, int version) async {
+    // Students table
     await db.execute('''
       CREATE TABLE students (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,6 +37,7 @@ class DatabaseHelper {
       )
     ''');
 
+    // Teachers table
     await db.execute('''
       CREATE TABLE teachers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +47,7 @@ class DatabaseHelper {
       )
     ''');
 
+    // Admins table
     await db.execute('''
       CREATE TABLE admins (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,6 +57,7 @@ class DatabaseHelper {
       )
     ''');
 
+    // Classes table
     await db.execute('''
       CREATE TABLE classes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,6 +67,7 @@ class DatabaseHelper {
       )
     ''');
 
+    // Class requests table
     await db.execute('''
       CREATE TABLE class_requests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,12 +79,16 @@ class DatabaseHelper {
       )
     ''');
 
+    // Grades table
     await db.execute('''
       CREATE TABLE grades (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         studentId INTEGER NOT NULL,
         classId INTEGER NOT NULL,
-        score REAL,
+        process_score REAL,
+        startup_score REAL,
+        exam_score REAL,
+        total_score REAL,
         FOREIGN KEY (studentId) REFERENCES students (id) ON DELETE CASCADE,
         FOREIGN KEY (classId) REFERENCES classes (id) ON DELETE CASCADE,
         UNIQUE(studentId, classId)
@@ -93,38 +103,20 @@ class DatabaseHelper {
     });
   }
 
-  // Student methods
+  // === Student Operations ===
   Future<int> insertStudent(Student student) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.insert('students', student.toMap());
   }
 
   Future<List<Student>> getAllStudents() async {
-    final db = await instance.database;
+    final db = await database;
     final maps = await db.query('students');
     return List.generate(maps.length, (i) => Student.fromMap(maps[i]));
   }
 
-  Future<int> deleteStudent(int id) async {
-    final db = await instance.database;
-
-    await db.delete(
-      'class_requests',
-      where: 'studentId = ?',
-      whereArgs: [id],
-    );
-
-    await db.delete(
-      'grades',
-      where: 'studentId = ?',
-      whereArgs: [id],
-    );
-
-    return await db.delete('students', where: 'id = ?', whereArgs: [id]);
-  }
-
   Future<int> updateStudent(Student student) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.update(
       'students',
       student.toMap(),
@@ -133,59 +125,28 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> deleteStudent(int id) async {
+    final db = await database;
+    // Delete related class requests and grades
+    await db.delete('class_requests', where: 'studentId = ?', whereArgs: [id]);
+    await db.delete('grades', where: 'studentId = ?', whereArgs: [id]);
+    return await db.delete('students', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // === Teacher Operations ===
   Future<int> insertTeacher(Teacher teacher) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.insert('teachers', teacher.toMap());
   }
 
   Future<List<Teacher>> getAllTeachers() async {
-    final db = await instance.database;
+    final db = await database;
     final maps = await db.query('teachers');
     return List.generate(maps.length, (i) => Teacher.fromMap(maps[i]));
   }
 
-  Future<int> deleteTeacher(int id) async {
-    final db = await instance.database;
-
-    // 1. Lấy tất cả lớp học của giảng viên này
-    final classes = await db.query(
-      'classes',
-      where: 'teacherId = ?',
-      whereArgs: [id],
-    );
-
-    // 2. Với mỗi lớp học, xóa tất cả dữ liệu liên quan
-    for (final classData in classes) {
-      final classId = classData['id'] as int;
-
-      // Xóa tất cả yêu cầu tham gia lớp
-      await db.delete(
-        'class_requests',
-        where: 'classId = ?',
-        whereArgs: [classId],
-      );
-
-      // Xóa tất cả điểm số
-      await db.delete(
-        'grades',
-        where: 'classId = ?',
-        whereArgs: [classId],
-      );
-    }
-
-    // 3. Xóa tất cả lớp học của giảng viên
-    await db.delete(
-      'classes',
-      where: 'teacherId = ?',
-      whereArgs: [id],
-    );
-
-    // 4. Cuối cùng xóa giảng viên
-    return await db.delete('teachers', where: 'id = ?', whereArgs: [id]);
-  }
-
   Future<int> updateTeacher(Teacher teacher) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.update(
       'teachers',
       teacher.toMap(),
@@ -194,134 +155,168 @@ class DatabaseHelper {
     );
   }
 
-  // Admin methods
+  Future<int> deleteTeacher(int id) async {
+    final db = await database;
+    // Delete related classes, class requests, and grades
+    final classes = await db.query('classes', where: 'teacherId = ?', whereArgs: [id]);
+    for (final classData in classes) {
+      final classId = classData['id'] as int;
+      await db.delete('class_requests', where: 'classId = ?', whereArgs: [classId]);
+      await db.delete('grades', where: 'classId = ?', whereArgs: [classId]);
+    }
+    await db.delete('classes', where: 'teacherId = ?', whereArgs: [id]);
+    return await db.delete('teachers', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // === Admin Operations ===
   Future<Admin?> getAdminByEmail(String email) async {
-    final db = await instance.database;
-    final maps = await db.query(
-      'admins',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
+    final db = await database;
+    final maps = await db.query('admins', where: 'email = ?', whereArgs: [email]);
     if (maps.isNotEmpty) {
       return Admin.fromMap(maps.first);
     }
     return null;
   }
 
-  // Class methods
+  // === Class Operations ===
   Future<int> insertClass(ClassModel classModel) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.insert('classes', classModel.toMap());
   }
 
   Future<List<ClassModel>> getClassesByTeacher(int teacherId) async {
-    final db = await instance.database;
+    final db = await database;
     final maps = await db.query('classes', where: 'teacherId = ?', whereArgs: [teacherId]);
     return List.generate(maps.length, (i) => ClassModel.fromMap(maps[i]));
   }
 
   Future<List<ClassModel>> getAllClasses() async {
-    final db = await instance.database;
+    final db = await database;
     final maps = await db.query('classes');
     return List.generate(maps.length, (i) => ClassModel.fromMap(maps[i]));
   }
 
   Future<int> deleteClass(int id) async {
-    final db = await instance.database;
-
-    // Xóa tất cả yêu cầu tham gia lớp liên quan
-    await db.delete(
-      'class_requests',
-      where: 'classId = ?',
-      whereArgs: [id],
-    );
-
-    // Xóa tất cả điểm số liên quan
-    await db.delete(
-      'grades',
-      where: 'classId = ?',
-      whereArgs: [id],
-    );
-
-    // Cuối cùng xóa lớp học
+    final db = await database;
+    // Delete related class requests and grades
+    await db.delete('class_requests', where: 'classId = ?', whereArgs: [id]);
+    await db.delete('grades', where: 'classId = ?', whereArgs: [id]);
     return await db.delete('classes', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Class request methods
+  // === Class Request Operations ===
   Future<int> requestJoinClass(int studentId, int classId) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.insert('class_requests', {
       'studentId': studentId,
       'classId': classId,
-      'status': 'pending'
+      'status': 'pending',
     });
   }
 
   Future<List<Map<String, dynamic>>> getPendingRequests(int classId) async {
-    final db = await instance.database;
-    return await db.rawQuery('''
+    final db = await database;
+    final result = await db.rawQuery('''
       SELECT cr.id, s.name, s.email 
       FROM class_requests cr
       JOIN students s ON cr.studentId = s.id
       WHERE cr.classId = ? AND cr.status = 'pending'
     ''', [classId]);
+    print('Pending requests for class $classId: Count=${result.length}, Data=$result');
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getStudentRequests(int studentId) async {
-    final db = await instance.database;
-    return await db.rawQuery('''
+    final db = await database;
+    final result = await db.rawQuery('''
       SELECT cr.id, c.name as className, t.name as teacherName, cr.status
       FROM class_requests cr
       JOIN classes c ON cr.classId = c.id
       JOIN teachers t ON c.teacherId = t.id
       WHERE cr.studentId = ?
     ''', [studentId]);
+    print('Student requests for student $studentId: Count=${result.length}, Data=$result');
+    return result;
   }
 
   Future<int> approveRequest(int requestId) async {
-    final db = await instance.database;
-    // First update the request status
-    await db.update(
+    final db = await database;
+    // Update status to approved
+    int updatedRows = await db.update(
       'class_requests',
       {'status': 'approved'},
       where: 'id = ?',
       whereArgs: [requestId],
     );
 
-    // Then get the request details
+    if (updatedRows == 0) {
+      print('Error: No rows updated for requestId $requestId');
+      return 0;
+    }
+
+    // Fetch the approved request to get studentId and classId
     final request = await db.query(
       'class_requests',
       where: 'id = ?',
       whereArgs: [requestId],
     );
 
-    if (request.isNotEmpty) {
-      final studentId = request.first['studentId'] as int;
-      final classId = request.first['classId'] as int;
+    if (request.isEmpty) {
+      print('Error: Request not found for requestId $requestId');
+      return 0;
+    }
 
-      // Insert a default grade record
-      return await db.insert('grades', {
+    final studentId = request.first['studentId'] as int;
+    final classId = request.first['classId'] as int;
+    print('Approved request: studentId=$studentId, classId=$classId, status=${request.first['status']}');
+
+    // Ensure a grade record is created
+    final existingGrade = await db.query(
+      'grades',
+      where: 'studentId = ? AND classId = ?',
+      whereArgs: [studentId, classId],
+    );
+    if (existingGrade.isEmpty) {
+      final gradeId = await db.insert('grades', {
         'studentId': studentId,
         'classId': classId,
-        'score': 0.0,
+        'process_score': 0.0,
+        'startup_score': 0.0,
+        'exam_score': 0.0,
+        'total_score': 0.0,
       });
+      print('Inserted grade record with id: $gradeId for studentId=$studentId, classId=$classId');
+    } else {
+      print('Grade record already exists for studentId=$studentId, classId=$classId');
     }
-    return 0;
+    return updatedRows;
   }
 
   Future<int> rejectRequest(int requestId) async {
-    final db = await instance.database;
-    return await db.update(
+    final db = await database;
+    int updatedRows = await db.update(
       'class_requests',
       {'status': 'rejected'},
       where: 'id = ?',
       whereArgs: [requestId],
     );
+    if (updatedRows == 0) {
+      print('Error: No rows updated for requestId $requestId');
+    }
+    return updatedRows;
   }
 
-  // Grade methods
-  Future<int> insertOrUpdateGrade({required int studentId, required int classId, required double grade}) async {
-    final db = await instance.database;
+  // === Grade Operations ===
+  Future<int> insertOrUpdateGrade({
+    required int studentId,
+    required int classId,
+    required double processScore,
+    required double startupScore,
+    required double examScore,
+  }) async {
+    final db = await database;
+    final totalScore = (processScore + startupScore + examScore) / 3;
+
     final existing = await db.query(
       'grades',
       where: 'studentId = ? AND classId = ?',
@@ -331,7 +326,12 @@ class DatabaseHelper {
     if (existing.isNotEmpty) {
       return await db.update(
         'grades',
-        {'score': grade},
+        {
+          'process_score': processScore,
+          'startup_score': startupScore,
+          'exam_score': examScore,
+          'total_score': totalScore,
+        },
         where: 'studentId = ? AND classId = ?',
         whereArgs: [studentId, classId],
       );
@@ -339,34 +339,41 @@ class DatabaseHelper {
       return await db.insert('grades', {
         'studentId': studentId,
         'classId': classId,
-        'score': grade,
+        'process_score': processScore,
+        'startup_score': startupScore,
+        'exam_score': examScore,
+        'total_score': totalScore,
       });
     }
   }
 
   Future<List<Map<String, dynamic>>> getGradesByStudent(int studentId) async {
-    final db = await instance.database;
-    return await db.rawQuery('''
-      SELECT g.score as grade, c.name as className
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT g.process_score, g.startup_score, g.exam_score, g.total_score, c.name as className
       FROM grades g
       JOIN classes c ON g.classId = c.id
       WHERE g.studentId = ?
     ''', [studentId]);
+    print('Grades for student $studentId: Count=${result.length}, Data=$result');
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getStudentsWithGradesByClass(int classId) async {
-    final db = await instance.database;
-    return await db.rawQuery('''
-      SELECT s.id, s.name, s.email, s.password, g.score as grade
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT s.id, s.name, s.email, s.password, g.process_score, g.startup_score, g.exam_score, g.total_score
       FROM students s
       JOIN class_requests cr ON s.id = cr.studentId
-      LEFT JOIN grades g ON s.id = g.studentId AND g.classId = ?
+      LEFT JOIN grades g ON s.id = g.studentId AND g.classId = cr.classId
       WHERE cr.classId = ? AND cr.status = 'approved'
-    ''', [classId, classId]);
+    ''', [classId]);
+    print('Students with grades for class $classId: Count=${result.length}, Data=$result');
+    return result;
   }
 
   Future<int> removeStudentFromClass(int studentId, int classId) async {
-    final db = await instance.database;
+    final db = await database;
     await db.delete(
       'grades',
       where: 'studentId = ? AND classId = ?',
@@ -379,39 +386,46 @@ class DatabaseHelper {
     );
   }
 
+  // === Debug Utility ===
   Future<void> printAllData() async {
-    final db = await instance.database;
+    final db = await database;
     print('==== DEBUG DATABASE ====');
 
-    // Print all students
-    final students = await db.query('students');
     print('Students:');
-    students.forEach(print);
+    final students = await db.query('students');
+    for (var s in students) {
+      print(s);
+    }
 
-    // Print all teachers
-    final teachers = await db.query('teachers');
     print('\nTeachers:');
-    teachers.forEach(print);
+    final teachers = await db.query('teachers');
+    for (var t in teachers) {
+      print(t);
+    }
 
-    // Print all admins
-    final admins = await db.query('admins');
     print('\nAdmins:');
-    admins.forEach(print);
+    final admins = await db.query('admins');
+    for (var a in admins) {
+      print(a);
+    }
 
-    // Print all classes
-    final classes = await db.query('classes');
     print('\nClasses:');
-    classes.forEach(print);
+    final classes = await db.query('classes');
+    for (var c in classes) {
+      print(c);
+    }
 
-    // Print all class requests
-    final requests = await db.query('class_requests');
     print('\nClass Requests:');
-    requests.forEach(print);
+    final requests = await db.query('class_requests');
+    for (var r in requests) {
+      print(r);
+    }
 
-    // Print all grades
-    final grades = await db.query('grades');
     print('\nGrades:');
-    grades.forEach(print);
+    final grades = await db.query('grades');
+    for (var g in grades) {
+      print(g);
+    }
 
     print('=======================');
   }

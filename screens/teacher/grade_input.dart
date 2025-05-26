@@ -13,18 +13,31 @@ class GradeInput extends StatefulWidget {
 }
 
 class _GradeInputState extends State<GradeInput> {
-  final TextEditingController _gradeController = TextEditingController();
+  final TextEditingController _processScoreController = TextEditingController();
+  final TextEditingController _startupScoreController = TextEditingController();
+  final TextEditingController _examScoreController = TextEditingController();
 
   void _saveGrade() async {
-    final grade = double.tryParse(_gradeController.text);
-    if (grade != null) {
+    final processScore = double.tryParse(_processScoreController.text);
+    final startupScore = double.tryParse(_startupScoreController.text);
+    final examScore = double.tryParse(_examScoreController.text);
+
+    if (processScore != null && startupScore != null && examScore != null) {
       await DatabaseHelper.instance.insertOrUpdateGrade(
         studentId: widget.student.id!,
         classId: widget.classModel.id!,
-        grade: grade,
+        processScore: processScore,
+        startupScore: startupScore,
+        examScore: examScore,
       );
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lưu điểm thành công')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lưu điểm thành công')),
+      );
       Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Vui lòng nhập điểm hợp lệ')),
+      );
     }
   }
 
@@ -37,18 +50,36 @@ class _GradeInputState extends State<GradeInput> {
         child: Column(
           children: [
             TextField(
-              controller: _gradeController,
-              decoration: InputDecoration(labelText: 'Điểm'),
+              controller: _processScoreController,
+              decoration: InputDecoration(labelText: 'Điểm quá trình'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _startupScoreController,
+              decoration: InputDecoration(labelText: 'Điểm khởi nghiệp'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _examScoreController,
+              decoration: InputDecoration(labelText: 'Điểm thi'),
               keyboardType: TextInputType.number,
             ),
             SizedBox(height: 16),
             ElevatedButton(
               onPressed: _saveGrade,
               child: Text('Lưu'),
-            )
+            ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _processScoreController.dispose();
+    _startupScoreController.dispose();
+    _examScoreController.dispose();
+    super.dispose();
   }
 }
