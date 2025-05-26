@@ -22,11 +22,13 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    print('Database path: $path'); // Debug: Print the database file path
+    return await openDatabase(path, version: 3, onCreate: _createDB, onUpgrade: _onUpgrade);
   }
 
   // Create database tables
   Future<void> _createDB(Database db, int version) async {
+    print('Creating database tables...');
     // Students table
     await db.execute('''
       CREATE TABLE students (
@@ -101,6 +103,47 @@ class DatabaseHelper {
       'email': 'admin@gmail.com',
       'password': 'admin123'
     });
+    print('Database tables created successfully.');
+  }
+
+  // Handle database upgrade
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    print('Upgrading database from version $oldVersion to $newVersion...');
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS grades (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          studentId INTEGER NOT NULL,
+          classId INTEGER NOT NULL,
+          process_score REAL,
+          startup_score REAL,
+          exam_score REAL,
+          total_score REAL,
+          FOREIGN KEY (studentId) REFERENCES students (id) ON DELETE CASCADE,
+          FOREIGN KEY (classId) REFERENCES classes (id) ON DELETE CASCADE,
+          UNIQUE(studentId, classId)
+        )
+      ''');
+    }
+    if (oldVersion < 3) {
+      // Drop and recreate the grades table to ensure correct schema
+      await db.execute('DROP TABLE IF EXISTS grades');
+      await db.execute('''
+        CREATE TABLE grades (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          studentId INTEGER NOT NULL,
+          classId INTEGER NOT NULL,
+          process_score REAL,
+          startup_score REAL,
+          exam_score REAL,
+          total_score REAL,
+          FOREIGN KEY (studentId) REFERENCES students (id) ON DELETE CASCADE,
+          FOREIGN KEY (classId) REFERENCES classes (id) ON DELETE CASCADE,
+          UNIQUE(studentId, classId)
+        )
+      ''');
+    }
+    print('Database upgrade completed.');
   }
 
   // === Student Operations ===
@@ -127,7 +170,6 @@ class DatabaseHelper {
 
   Future<int> deleteStudent(int id) async {
     final db = await database;
-    // Delete related class requests and grades
     await db.delete('class_requests', where: 'studentId = ?', whereArgs: [id]);
     await db.delete('grades', where: 'studentId = ?', whereArgs: [id]);
     return await db.delete('students', where: 'id = ?', whereArgs: [id]);
@@ -157,7 +199,6 @@ class DatabaseHelper {
 
   Future<int> deleteTeacher(int id) async {
     final db = await database;
-    // Delete related classes, class requests, and grades
     final classes = await db.query('classes', where: 'teacherId = ?', whereArgs: [id]);
     for (final classData in classes) {
       final classId = classData['id'] as int;
@@ -198,7 +239,6 @@ class DatabaseHelper {
 
   Future<int> deleteClass(int id) async {
     final db = await database;
-    // Delete related class requests and grades
     await db.delete('class_requests', where: 'classId = ?', whereArgs: [id]);
     await db.delete('grades', where: 'classId = ?', whereArgs: [id]);
     return await db.delete('classes', where: 'id = ?', whereArgs: [id]);
@@ -289,6 +329,10 @@ class DatabaseHelper {
     } else {
       print('Grade record already exists for studentId=$studentId, classId=$classId');
     }
+
+    // Debug: Print all data after approving
+    await printAllData();
+    await printRelevantData(classId);
     return updatedRows;
   }
 
@@ -361,8 +405,10 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getStudentsWithGradesByClass(int classId) async {
     final db = await database;
+    // Simplified query to ensure students are fetched even if grades don't exist
     final result = await db.rawQuery('''
-      SELECT s.id, s.name, s.email, s.password, g.process_score, g.startup_score, g.exam_score, g.total_score
+      SELECT s.id, s.name, s.email, s.password, 
+             g.process_score, g.startup_score, g.exam_score, g.total_score
       FROM students s
       JOIN class_requests cr ON s.id = cr.studentId
       LEFT JOIN grades g ON s.id = g.studentId AND g.classId = cr.classId
@@ -423,6 +469,34 @@ class DatabaseHelper {
 
     print('\nGrades:');
     final grades = await db.query('grades');
+    for (var g in grades) {
+      print(g);
+    }
+
+    print('=======================');
+  }
+
+  // Debug relevant data for a specific class after approving a request
+  Future<void> printRelevantData(int classId) async {
+    final db = await database;
+    print('==== DEBUG RELEVANT DATA FOR CLASS $classId ====');
+
+    print('Class Requests (status=approved):');
+    final requests = await db.query(
+      'class_requests',
+      where: 'classId = ? AND status = ?',
+      whereArgs: [classId, 'approved'],
+    );
+    for (var r in requests) {
+      print(r);
+    }
+
+    print('\nGrades for class $classId:');
+    final grades = await db.query(
+      'grades',
+      where: 'classId = ?',
+      whereArgs: [classId],
+    );
     for (var g in grades) {
       print(g);
     }

@@ -18,7 +18,7 @@ class _StudentListState extends State<StudentList> {
   void _loadStudents() async {
     final data = await DatabaseHelper.instance
         .getStudentsWithGradesByClass(widget.classModel.id!);
-    print('Loaded students for class ${widget.classModel.id}: $data'); // Thêm debug
+    print('Loaded students for class ${widget.classModel.id}: $data');
     setState(() {
       studentsWithGrades = data;
     });
@@ -65,45 +65,46 @@ class _StudentListState extends State<StudentList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Danh sách sinh viên - ${widget.classModel.name}')),
-      body: ListView.builder(
+      body: studentsWithGrades.isEmpty
+          ? Center(child: Text('Chưa có sinh viên nào trong lớp này'))
+          : ListView.builder(
         itemCount: studentsWithGrades.length,
         itemBuilder: (context, index) {
           final student = studentsWithGrades[index];
-          return ListTile(
-            title: Text('ID: ${student['id']} - ${student['name']}'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Email: ${student['email']}'),
-                Text('Điểm quá trình: ${student['process_score']?.toString() ?? 'Chưa có'}'),
-                Text('Điểm khởi nghiệp: ${student['startup_score']?.toString() ?? 'Chưa có'}'),
-                Text('Điểm thi: ${student['exam_score']?.toString() ?? 'Chưa có'}'),
-                Text('Tổng điểm: ${student['total_score']?.toString() ?? 'Chưa có'}'),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _removeStudent(student['id']),
-                ),
-              ],
-            ),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => GradeInput(
-                  student: Student(
-                    id: student['id'],
-                    name: student['name'],
-                    email: student['email'],
-                    password: student['password'],
-                  ),
-                  classModel: widget.classModel,
-                ),
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              title: Text('${student['name']}'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Email: ${student['email']}'),
+                  SizedBox(height: 4),
+                  Text('Điểm quá trình: ${student['process_score']?.toStringAsFixed(2) ?? 'Chưa có'}'),
+                  Text('Điểm khởi nghiệp: ${student['startup_score']?.toStringAsFixed(2) ?? 'Chưa có'}'),
+                  Text('Điểm thi: ${student['exam_score']?.toStringAsFixed(2) ?? 'Chưa có'}'),
+                  Text('Tổng điểm: ${student['total_score']?.toStringAsFixed(2) ?? 'Chưa có'}'),
+                ],
               ),
-            ).then((_) => _loadStudents()), // Làm mới khi quay lại
+              trailing: IconButton(
+                icon: Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _removeStudent(student['id']),
+              ),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GradeInput(
+                    student: Student(
+                      id: student['id'],
+                      name: student['name'],
+                      email: student['email'],
+                      password: '', // Không cần password ở đây
+                    ),
+                    classModel: widget.classModel,
+                  ),
+                ),
+              ).then((_) => _loadStudents()),
+            ),
           );
         },
       ),
